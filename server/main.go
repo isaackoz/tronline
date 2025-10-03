@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/isaackoz/tronline/cfg"
+	"github.com/isaackoz/tronline/signaling"
 )
 
 // ref: https://victoriametrics.com/blog/go-graceful-shutdown/#summary
@@ -52,13 +53,41 @@ func main() {
 		fmt.Fprintln(w, "OK")
 	})
 
+	// hub
+	hub := signaling.NewHub()
+	go hub.Run(ctx)
+
+	if !config.Production {
+		// log the hub stats every 10 seconds
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					slog.Debug("hub stats",
+						"rooms", len(hub.Rooms),
+					)
+				case <-ctx.Done():
+					slog.Info("stopping hub stats logging")
+					return
+				}
+			}
+		}()
+	}
+
+	// signaling server
+	signaling.HandleSignalServer(ctx, mux, hub)
+
 	ongoingCtx, stopOngoingGracefully := context.WithCancel(context.Background())
 	server := &http.Server{
 		Addr: config.Addr,
 		BaseContext: func(_ net.Listener) context.Context {
 			return ongoingCtx
 		},
+		Handler: mux,
 	}
+
 	go func() {
 		slog.Info("listening", "addr", config.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -70,7 +99,10 @@ func main() {
 	stop()
 	isShuttingDown.Store(true)
 	slog.Info("shutting down...")
-	time.Sleep(_readinessDrainDelay)
+	// quick close in development
+	if config.Production {
+		time.Sleep(_readinessDrainDelay)
+	}
 	slog.Info("drain delay passed, shutting down connections gracefully")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), _shutdownPeriod)
 	defer cancel()

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/sethvargo/go-envconfig"
 )
 
@@ -28,6 +29,10 @@ type Config struct {
 }
 
 func LoadConfig(ctx context.Context) (*Config, error) {
+	err := godotenv.Load()
+	if err != nil {
+		slog.Warn("load .env file", "error", err)
+	}
 	var c envConfig
 	if err := envconfig.Process(ctx, &c); err != nil {
 		return nil, fmt.Errorf("process envconfig: %w", err)

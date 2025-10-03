@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"log/slog"
@@ -16,7 +16,7 @@ func NewLogger(config *cfg.Config) *slog.Logger {
 		handler = tint.NewHandler(os.Stdout, &tint.Options{
 			AddSource:  false,
 			Level:      config.LogLevel,
-			TimeFormat: "11:11:11",
+			TimeFormat: "15:04:05",
 		})
 	} else {
 		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
