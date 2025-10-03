@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/coder/websocket"
 	"github.com/lithammer/shortuuid/v4"
@@ -57,12 +58,14 @@ func HandleSignalServer(ctx context.Context, mux *http.ServeMux, hub *Hub) {
 			Send:   make(chan []byte, 256),
 			IsHost: isHost,
 		}
+		slog.Debug("client connected", "client_id", client.ID, "room_id", room.ID, "is_host", client.IsHost)
 
 		hub.Register <- client
-
+		var wg sync.WaitGroup
+		wg.Add(1)
 		go client.WritePump(ctx)
-		go client.ReadPump(ctx)
-		slog.Debug("client connected", "client_id", client.ID, "room_id", room.ID, "is_host", client.IsHost)
+		wg.Add(1)
+		client.ReadPump(ctx)
 
 	})
 }

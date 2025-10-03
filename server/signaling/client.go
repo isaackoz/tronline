@@ -3,6 +3,7 @@ package signaling
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -26,6 +27,7 @@ type Client struct {
 }
 
 // read messages from the websocket connection. client->this server
+// todo move this to just go isnide the server
 func (c *Client) ReadPump(ctx context.Context) {
 	defer func() {
 		c.Hub.Unregister <- c
@@ -38,7 +40,16 @@ func (c *Client) ReadPump(ctx context.Context) {
 		slog.Debug("waiting for message", "client_id", c.ID)
 		_, message, err := c.Conn.Read(ctx)
 		if err != nil {
-			slog.Error("read message", "error", err)
+			var wsErr websocket.CloseError
+			if errors.As(err, &wsErr) {
+				if wsErr.Code != websocket.StatusNormalClosure {
+					slog.Error("websocket closed unexpectedly", "code", wsErr.Code, "reason", wsErr.Reason)
+				}
+				// otherwise it was a normal closure
+			} else {
+				// if it was some other error, log it
+				slog.Error("read message", "error", err)
+			}
 			break
 		}
 

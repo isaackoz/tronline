@@ -34,6 +34,10 @@ func (r *Room) AddClient(client *Client) error {
 			return &RoomError{Message: "room already has a host"}
 		}
 		r.Host = client
+		r.Host.SendMessage(&Message{
+			Type: "room-meta",
+			Data: map[string]string{"roomId": r.ID},
+		})
 		slog.Debug("host joined room", "room_id", r.ID, "client_id", client.ID)
 	} else {
 		if r.Guest != nil {
