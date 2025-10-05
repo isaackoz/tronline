@@ -55,7 +55,6 @@ func main() {
 
 	// hub
 	hub := signaling.NewHub()
-	go hub.Run(ctx)
 
 	if !config.Production {
 		// log the hub stats every 10 seconds

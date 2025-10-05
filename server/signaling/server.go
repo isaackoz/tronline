@@ -5,13 +5,12 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/coder/websocket"
 	"github.com/lithammer/shortuuid/v4"
 )
 
-func HandleSignalServer(ctx context.Context, mux *http.ServeMux, hub *Hub) {
+func HandleSignalServer(rootCtx context.Context, mux *http.ServeMux, hub *Hub) {
 
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		slog.Debug("ws connection attempt", "remote_addr", r.RemoteAddr)
@@ -33,12 +32,22 @@ func HandleSignalServer(ctx context.Context, mux *http.ServeMux, hub *Hub) {
 		if isHost {
 			// create and set the room id
 			roomID = strings.ToUpper(shortuuid.New()[0:6]) // 6 char room id i.e. "AB12CD"
-			hub.CreateRoom(roomID)
+			_, roomExists := hub.GetRoom(roomID)
+			if roomExists {
+				http.Error(w, "Could not create room, try again", http.StatusInternalServerError)
+				return
+			}
+			room := hub.CreateRoom(roomID)
+			if room == nil {
+				http.Error(w, "Could not create room, try again", http.StatusInternalServerError)
+				return
+			}
+			go hub.RunRoom(rootCtx, room) // runs the rooms logic outside this request handler
 		}
 
 		room, roomExists := hub.GetRoom(roomID)
 		if !roomExists {
-			slog.Error("room does not exist", "room_id", roomID)
+			slog.Debug("room does not exist", "room_id", roomID)
 			http.Error(w, "Could not find room, try again", http.StatusInternalServerError)
 			return
 		}
@@ -48,7 +57,7 @@ func HandleSignalServer(ctx context.Context, mux *http.ServeMux, hub *Hub) {
 			http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
 			return
 		}
-		defer c.CloseNow()
+		defer c.CloseNow() // this is a noop if already closed
 
 		client := &Client{
 			ID:     shortuuid.New(),
@@ -58,14 +67,26 @@ func HandleSignalServer(ctx context.Context, mux *http.ServeMux, hub *Hub) {
 			Send:   make(chan []byte, 256),
 			IsHost: isHost,
 		}
+
+		if err := room.AddClient(client); err != nil {
+			slog.Debug("add client to room", "error", err)
+			client.SendMessage(&Message{
+				Type: "error",
+				Data: map[string]string{"message": err.Error()},
+			})
+			return
+		}
+
+		client.SendMessage(&Message{
+			Type: "room-meta",
+			Data: map[string]any{
+				"roomId": roomID,
+			},
+		})
+
 		slog.Debug("client connected", "client_id", client.ID, "room_id", room.ID, "is_host", client.IsHost)
-
-		hub.Register <- client
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go client.WritePump(ctx)
-		wg.Add(1)
-		client.ReadPump(ctx)
-
+		client.ReadWriteWs(room.ctx) // blocking
+		slog.Debug("client disconnected", "client_id", client.ID, "room_id", room.ID)
+		room.RemoveClient(client)
 	})
 }

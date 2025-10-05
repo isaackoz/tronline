@@ -1,6 +1,7 @@
 package signaling
 
 type Message struct {
+	// "offer", "answer", "ice-candidate", "error", "webrtc-connected"
 	Type string `json:"type"`
 	// "host" or "client"
 	Target string `json:"target,omitempty"`

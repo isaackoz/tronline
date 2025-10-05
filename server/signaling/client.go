@@ -12,7 +12,7 @@ import (
 
 const (
 	writeWait      = 10 * time.Second
-	pongWait       = time.Second * 60
+	pongWait       = time.Second * 25
 	pingPeriod     = (pongWait * 9) / 10
 	maxMessageSize = 1024 * 128 // 128KB
 )
@@ -22,77 +22,95 @@ type Client struct {
 	Hub    *Hub
 	Room   *Room
 	Conn   *websocket.Conn
-	Send   chan []byte
+	Send   chan []byte // for sending messages to the client. buffer of 256 messages
 	IsHost bool
 }
 
-// read messages from the websocket connection. client->this server
-// todo move this to just go isnide the server
-func (c *Client) ReadPump(ctx context.Context) {
+// read and write messages to/from the websocket connection. this is client<->server
+func (c *Client) ReadWriteWs(ctx context.Context) {
+	c.Conn.SetReadLimit(maxMessageSize)
+	readChan := make(chan Message, 10)
+	pingTicker := time.NewTicker(pingPeriod)
 	defer func() {
-		c.Hub.Unregister <- c
-		// ensure we clean up
-		c.Conn.CloseNow()
+		c.Conn.Close(websocket.StatusNormalClosure, "closing")
+		pingTicker.Stop()
 	}()
 
-	c.Conn.SetReadLimit(maxMessageSize)
-	for {
-		slog.Debug("waiting for message", "client_id", c.ID)
-		_, message, err := c.Conn.Read(ctx)
-		if err != nil {
-			var wsErr websocket.CloseError
-			if errors.As(err, &wsErr) {
-				if wsErr.Code != websocket.StatusNormalClosure {
-					slog.Error("websocket closed unexpectedly", "code", wsErr.Code, "reason", wsErr.Reason)
+	go func() {
+		defer close(readChan)
+		for {
+			_, data, err := c.Conn.Read(ctx)
+			if err != nil {
+				var wsErr websocket.CloseError
+				if errors.As(err, &wsErr) {
+					if wsErr.Code != websocket.StatusNormalClosure {
+						slog.Error("websocket closed unexpectedly", "code", wsErr.Code, "reason", wsErr.Reason)
+					}
+				} else if !errors.Is(err, context.Canceled) {
+					slog.Error("read message", "error", err)
 				}
 				// otherwise it was a normal closure
-			} else {
-				// if it was some other error, log it
-				slog.Error("read message", "error", err)
+				return
 			}
-			break
+			var msg Message
+			if err := json.Unmarshal(data, &msg); err != nil {
+				slog.Error("unmarshal message", "error", err)
+				continue
+			}
+			if c.IsHost {
+				msg.From = "host"
+			} else {
+				msg.From = "client"
+			}
+			select {
+			case readChan <- msg:
+			default:
+				slog.Debug("read channel full, dropping message", "client_id", c.ID)
+			}
 		}
-
-		var msg Message
-		if err := json.Unmarshal(message, &msg); err != nil {
-			slog.Error("unmarshal message", "error", err)
-			continue
-		}
-
-		if c.IsHost {
-			msg.From = "host"
-		} else {
-			msg.From = "client"
-		}
-
-		c.Room.RouteMessage(&msg, c)
-	}
-}
-
-// write messages to the websocket connection. this server->client
-func (c *Client) WritePump(ctx context.Context) {
-	ticker := time.NewTicker(pingPeriod)
-	defer func() {
-		ticker.Stop()
-		c.Conn.CloseNow()
 	}()
 
 	for {
 		select {
-		case message, ok := <-c.Send:
+		case msg, ok := <-readChan:
 			if !ok {
-				c.Conn.Close(websocket.StatusNormalClosure, "closed")
+				slog.Debug("read channel closed, closing connection", "client_id", c.ID)
 				return
 			}
-			err := c.Conn.Write(ctx, websocket.MessageText, message)
+			slog.Debug("message received", "type", msg.Type, "from", msg.From, "target", msg.Target, "client_id", c.ID)
+
+			switch msg.Type {
+			case "offer", "answer", "ice-candidate":
+				c.Room.RouteMessage(&msg, c)
+			case "webrtc-connected":
+				slog.Debug("webrtc connected", "client_id", c.ID, "room_id", c.Room.ID)
+				// close the websocket connection as we don't need it anymore
+				return
+			default:
+				slog.Warn("unknown message type", "type", msg.Type, "client_id", c.ID)
+			}
+		case writeMessage, ok := <-c.Send:
+			if !ok {
+				slog.Debug("send channel closed, closing connection", "client_id", c.ID)
+				return
+			}
+			err := c.Conn.Write(ctx, websocket.MessageText, writeMessage)
 			if err != nil {
-				slog.Debug("writing to client", "error", err)
+				if !errors.Is(err, context.Canceled) {
+					slog.Debug("writing to client", "error", err)
+				}
 				return
 			}
-		case <-ticker.C:
+		case <-pingTicker.C:
 			if err := c.Conn.Ping(ctx); err != nil {
-				slog.Debug("pinging client", "error", err)
+				if !errors.Is(err, context.Canceled) {
+					slog.Debug("pinging client", "error", err)
+				}
+				return
 			}
+		case <-ctx.Done():
+			slog.Debug("client context done, closing connection", "client_id", c.ID)
+			return
 		}
 	}
 }
