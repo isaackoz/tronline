@@ -10,7 +10,7 @@ require (
 require github.com/google/uuid v1.6.0 // indirect
 
 require (
-	github.com/coder/websocket v1.8.14 // indirect
+	github.com/coder/websocket v1.8.14
 	github.com/joho/godotenv v1.5.1
 	github.com/lithammer/shortuuid/v4 v4.2.0
 )
