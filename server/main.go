@@ -45,6 +45,8 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	// TODO: setup cors
+
 	// readiness
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if isShuttingDown.Load() {
@@ -78,13 +80,15 @@ func main() {
 	// signaling server
 	signaling.HandleSignalServer(ctx, mux, hub)
 
+	handler := corsMiddleware(mux)
+
 	ongoingCtx, stopOngoingGracefully := context.WithCancel(context.Background())
 	server := &http.Server{
 		Addr: config.Addr,
 		BaseContext: func(_ net.Listener) context.Context {
 			return ongoingCtx
 		},
-		Handler: mux,
+		Handler: handler,
 	}
 
 	go func() {
