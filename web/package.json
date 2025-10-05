@@ -22,6 +22,7 @@
 		"@sveltejs/kit": "^2.22.0",
 		"@sveltejs/vite-plugin-svelte": "^6.0.0",
 		"@types/node": "^22",
+		"daisyui": "^5.1.27",
 		"eslint": "^9.22.0",
 		"eslint-config-prettier": "^10.0.1",
 		"eslint-plugin-svelte": "^3.0.0",
@@ -39,5 +40,10 @@
 		"onlyBuiltDependencies": [
 			"esbuild"
 		]
+	},
+	"dependencies": {
+		"@fontsource-variable/orbitron": "^5.2.8",
+		"@tailwindcss/vite": "^4.1.14",
+		"tailwindcss": "^4.1.14"
 	}
 }
