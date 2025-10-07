@@ -24,6 +24,7 @@ type Client struct {
 	Conn   *websocket.Conn
 	Send   chan []byte // for sending messages to the client. buffer of 256 messages
 	IsHost bool
+	Ctx    context.Context
 }
 
 // read and write messages to/from the websocket connection. this is client<->server
@@ -32,18 +33,23 @@ func (c *Client) ReadWriteWs(ctx context.Context) {
 	readChan := make(chan Message, 10)
 	pingTicker := time.NewTicker(pingPeriod)
 	defer func() {
+		slog.Debug("Closing client connection in readwritews", "client_id", c.ID)
 		c.Conn.Close(websocket.StatusNormalClosure, "closing")
 		pingTicker.Stop()
 	}()
 
-	go func() {
+	go func(conn *websocket.Conn) {
+		if conn == nil {
+			slog.Error("websocket connection is nil in read goroutine", "client_id", c.ID)
+			return
+		}
 		defer close(readChan)
 		for {
-			_, data, err := c.Conn.Read(ctx)
+			_, data, err := conn.Read(ctx)
 			if err != nil {
 				var wsErr websocket.CloseError
 				if errors.As(err, &wsErr) {
-					if wsErr.Code != websocket.StatusNormalClosure {
+					if wsErr.Code != websocket.StatusNormalClosure && wsErr.Code != websocket.StatusGoingAway {
 						slog.Error("websocket closed unexpectedly", "code", wsErr.Code, "reason", wsErr.Reason)
 					}
 				} else if !errors.Is(err, context.Canceled) {
@@ -68,7 +74,7 @@ func (c *Client) ReadWriteWs(ctx context.Context) {
 				slog.Debug("read channel full, dropping message", "client_id", c.ID)
 			}
 		}
-	}()
+	}(c.Conn)
 
 	for {
 		select {

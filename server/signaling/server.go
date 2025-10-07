@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/lithammer/shortuuid/v4"
@@ -52,13 +53,24 @@ func HandleSignalServer(rootCtx context.Context, mux *http.ServeMux, hub *Hub) {
 			return
 		}
 		// upgrade connection to websocket
-		c, err := websocket.Accept(w, r, &websocket.AcceptOptions{})
+		c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			OriginPatterns: []string{
+				"*",
+			},
+		})
 		if err != nil {
+			slog.Debug("upgrade to websocket", "error", err)
 			http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
 			return
 		}
-		defer c.CloseNow() // this is a noop if already closed
+		clientCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 
+		defer func() {
+			slog.Debug("closing connection inside server.go")
+			c.CloseNow() // this is a noop if already closed
+			cancel()
+		}()
+		// max of 10 mins connection time
 		client := &Client{
 			ID:     shortuuid.New(),
 			Hub:    hub,
@@ -66,6 +78,7 @@ func HandleSignalServer(rootCtx context.Context, mux *http.ServeMux, hub *Hub) {
 			Conn:   c,
 			Send:   make(chan []byte, 256),
 			IsHost: isHost,
+			Ctx:    clientCtx,
 		}
 
 		if err := room.AddClient(client); err != nil {
@@ -85,7 +98,7 @@ func HandleSignalServer(rootCtx context.Context, mux *http.ServeMux, hub *Hub) {
 		})
 
 		slog.Debug("client connected", "client_id", client.ID, "room_id", room.ID, "is_host", client.IsHost)
-		client.ReadWriteWs(room.ctx) // blocking
+		client.ReadWriteWs(clientCtx) // blocking
 		slog.Debug("client disconnected", "client_id", client.ID, "room_id", room.ID)
 		room.RemoveClient(client)
 	})

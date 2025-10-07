@@ -91,6 +91,7 @@ func (r *Room) RemoveClient(client *Client) {
 		}
 
 	} else {
+		slog.Debug("client left room", "room_id", r.ID, "client_id", client.ID)
 		r.Guest = nil
 		if r.Host != nil {
 			r.Host.SendMessage(&Message{
@@ -99,7 +100,6 @@ func (r *Room) RemoveClient(client *Client) {
 		}
 	}
 
-	slog.Debug("client left room", "room_id", r.ID, "client_id", client.ID)
 }
 
 // any message coming from the client will be routed to the other client in the room
