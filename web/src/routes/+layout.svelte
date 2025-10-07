@@ -4,6 +4,8 @@
 	import '../app.css';
 
 	let { children } = $props();
+
+	// initialize state here for websocket connection management
 </script>
 
 <svelte:head>
