@@ -18,7 +18,7 @@
 
 <GridBg />
 <main class="flex items-center w-full h-svh justify-center flex-col max-w-md mx-auto relative">
-	<h1 class="text-8xl neon-text neon-blue">Tronline</h1>
+	<h1 class="text-8xl neontxt neon-blue mb-12">Tronline</h1>
 	{#await data.isServerOnline}
 		<div class="flex items-center space-x-2">
 			<span class="status"></span>

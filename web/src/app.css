@@ -46,10 +46,50 @@
     0 0 8px #fff,
     /* 0 0 10px #fff, */
     0 0 42px var(--neon-color, #0fa),
-    0 0 82px var(--neon-color, #0fa),
+    /* 0 0 82px var(--neon-color, #0fa), */
     0 0 92px var(--neon-color, #0fa),
-    0 0 102px var(--neon-color, #0fa),
+    /* 0 0 102px var(--neon-color, #0fa), */
     0 0 151px var(--neon-color, #0fa)
+}
+
+@utility neontxt {
+  /* Core customizable theme variables */
+  --neon-color: var(--color-primary, #08f);
+  --neon-bg: var(--color-primary-content, #000);
+  --neon-shadow: color-mix(in srgb, var(--neon-color) 60%, black);
+  --neon-highlight: color-mix(in srgb, var(--neon-color) 90%, white);
+
+  position: relative;
+  font-size: 14vw;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.2vw;
+  text-align: center;
+
+  color: var(--neon-bg);
+  -webkit-text-stroke: 2px var(--neon-color);
+
+  /* Boxed 3D illusion (dynamic color layering) */
+  text-shadow:
+    /* dark bevel */
+    -1px -1px 0 var(--neon-shadow),
+    -2px -2px 0 var(--neon-shadow),
+
+    /* extrusion depth
+    -3px 1px 0 var(--neon-shadow),
+    -4px 2px 0 var(--neon-shadow),
+    -5px 3px 0 var(--neon-shadow),
+    -6px 4px 0 var(--neon-shadow),
+    -7px 5px 0 var(--neon-shadow),
+    -8px 6px 0 var(--neon-shadow),
+    -9px 7px 0 var(--neon-shadow),
+    -10px 8px 0 var(--neon-shadow), */
+
+    /* upper edge highlights (gives "tube edge") */
+    0 -1px 1px var(--neon-highlight),
+    -1px 0 4px var(--neon-highlight),
+    -2px 1px 6px var(--neon-highlight),
+    -3px 2px 18px var(--neon-highlight);
 }
 
 /* Color variants */
