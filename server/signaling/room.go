@@ -63,8 +63,8 @@ func (r *Room) AddClient(client *Client) error {
 		r.Guest = client
 		slog.Debug("guest joined room", "room_id", r.ID, "client_id", client.ID)
 		if r.Host != nil {
-			r.Host.SendMessage(&Message{
-				Type: "peer-joined",
+			r.Host.SendMessage(&EventMessage{
+				Type: MessageEventTypeGuestJoined,
 			})
 		}
 	}
@@ -80,8 +80,9 @@ func (r *Room) RemoveClient(client *Client) {
 		r.Host = nil
 
 		if r.Guest != nil {
-			r.Guest.SendMessage(&Message{
-				Type: "host-left",
+			r.Guest.SendMessage(&EventMessage{
+				Type:     MessageEventTypeHostLeft,
+				Metadata: nil,
 			})
 		}
 
@@ -94,8 +95,8 @@ func (r *Room) RemoveClient(client *Client) {
 		slog.Debug("client left room", "room_id", r.ID, "client_id", client.ID)
 		r.Guest = nil
 		if r.Host != nil {
-			r.Host.SendMessage(&Message{
-				Type: "client-left",
+			r.Host.SendMessage(&EventMessage{
+				Type: MessageEventTypeGuestLeft,
 			})
 		}
 	}
@@ -105,7 +106,7 @@ func (r *Room) RemoveClient(client *Client) {
 // any message coming from the client will be routed to the other client in the room
 // in other words, we just forward the message to the other client and don't handle it here
 // note: the messages must still be under 128kb as we defined in the websocket upgrader
-func (r *Room) RouteMessage(msg *Message, from *Client) {
+func (r *Room) RouteMessage(msg Message, from *Client) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -122,7 +123,7 @@ func (r *Room) RouteMessage(msg *Message, from *Client) {
 	}
 
 	target.SendMessage(msg)
-	slog.Debug("routed message", "from", from.ID, "to", target.ID, "room_id", r.ID, "type", msg.Type)
+	slog.Debug("routed message", "from", from.ID, "to", target.ID, "room_id", r.ID, "type", msg.GetType())
 }
 
 func (r *Room) IsEmpty() bool {
@@ -137,16 +138,16 @@ func (r *Room) Cleanup() error {
 	defer r.mu.Unlock()
 
 	if r.Host != nil {
-		r.Host.SendMessage(&Message{
-			Type: "room-closed",
+		r.Host.SendMessage(&EventMessage{
+			Type: MessageEventRoomClosed,
 		})
 		close(r.Host.Send)
 		r.Host = nil
 	}
 
 	if r.Guest != nil {
-		r.Guest.SendMessage(&Message{
-			Type: "room-closed",
+		r.Guest.SendMessage(&EventMessage{
+			Type: MessageEventRoomClosed,
 		})
 		close(r.Guest.Send)
 		r.Guest = nil

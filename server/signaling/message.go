@@ -1,44 +1,108 @@
 package signaling
 
-type Message struct {
-	// "offer", "answer", "ice-candidate", "error", "webrtc-connected"
-	Type string `json:"type"`
-	// "host" or "client"
-	Target string `json:"target,omitempty"`
-	// "host" or "client"
-	From string `json:"from,omitempty"`
-	Data any    `json:"data,omitempty"`
+type MessageType string
+
+const (
+	MessageTypeOffer           MessageType = "offer"
+	MessageTypeAnswer          MessageType = "answer"
+	MessageTypeICECandidate    MessageType = "ice-candidate"
+	MessageTypeError           MessageType = "error"
+	MessageTypeWebRTCConnected MessageType = "webrtc-connected"
+
+	MessageTypeRoomMeta MessageType = "room-meta"
+
+	MessageEventTypeHostLeft    MessageType = "host-left"
+	MessageEventTypeGuestLeft   MessageType = "guest-left"
+	MessageEventTypeGuestJoined MessageType = "guest-joined"
+	MessageEventRoomClosed      MessageType = "room-closed"
+)
+
+// Message interface - all messages must implement GetType()
+type Message interface {
+	GetType() MessageType
 }
 
-// Specific message payloads
+type EventMessage struct {
+	Type     MessageType `json:"type"`
+	Metadata any         `json:"metadata,omitempty"`
+}
+
+func (m EventMessage) GetType() MessageType {
+	return m.Type
+}
+
+type RoomMetaMessage struct {
+	Type   MessageType `json:"type"`
+	RoomId string      `json:"roomId"`
+}
+
+func (m RoomMetaMessage) GetType() MessageType {
+	return m.Type
+}
+
+// OfferMessage represents a WebRTC offer
 type OfferMessage struct {
-	// "offer"
-	Type   string `json:"type"`
-	SDP    string `json:"sdp"`
-	Target string `json:"target"`
+	Type   MessageType `json:"type"`
+	SDP    string      `json:"sdp"`
+	Target string      `json:"target"`
+	From   string      `json:"from,omitempty"`
 }
 
+func (m OfferMessage) GetType() MessageType {
+	return MessageTypeOffer
+}
+
+// AnswerMessage represents a WebRTC answer
 type AnswerMessage struct {
-	// "answer"
-	Type   string `json:"type"`
-	SDP    string `json:"sdp"`
-	Target string `json:"target"`
+	Type   MessageType `json:"type"`
+	SDP    string      `json:"sdp"`
+	Target string      `json:"target"`
+	From   string      `json:"from,omitempty"`
 }
 
+func (m AnswerMessage) GetType() MessageType {
+	return MessageTypeAnswer
+}
+
+// ICECandidateMessage represents an ICE candidate exchange
 type ICECandidateMessage struct {
-	// "ice-candidate"
-	Type      string       `json:"type"`
+	Type      MessageType  `json:"type"`
 	Candidate ICECandidate `json:"candidate"`
 	Target    string       `json:"target"`
+	From      string       `json:"from,omitempty"`
 }
 
+func (m ICECandidateMessage) GetType() MessageType {
+	return MessageTypeICECandidate
+}
+
+// ICECandidate represents a WebRTC ICE candidate
 type ICECandidate struct {
 	Candidate     string `json:"candidate"`
 	SDPMid        string `json:"sdpMid"`
 	SDPMLineIndex int    `json:"sdpMLineIndex"`
 }
 
+// ErrorMessage represents an error condition
 type ErrorMessage struct {
-	Type    string `json:"type"` // "error"
-	Message string `json:"message"`
+	Type    MessageType `json:"type"`
+	Message string      `json:"message"`
+	Target  string      `json:"target,omitempty"`
+	From    string      `json:"from,omitempty"`
+}
+
+func (m ErrorMessage) GetType() MessageType {
+	return MessageTypeError
+}
+
+// WebRTCConnectedMessage indicates successful WebRTC connection
+type WebRTCConnectedMessage struct {
+	Type   MessageType `json:"type"`
+	Target string      `json:"target,omitempty"`
+	From   string      `json:"from,omitempty"`
+	Data   any         `json:"data,omitempty"`
+}
+
+func (m WebRTCConnectedMessage) GetType() MessageType {
+	return MessageTypeWebRTCConnected
 }

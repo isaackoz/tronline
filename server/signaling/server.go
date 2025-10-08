@@ -17,7 +17,6 @@ func HandleSignalServer(rootCtx context.Context, mux *http.ServeMux, hub *Hub) {
 		slog.Debug("ws connection attempt", "remote_addr", r.RemoteAddr)
 		roomID := r.URL.Query().Get("roomId")
 		role := r.URL.Query().Get("role")
-
 		if role != "host" && role != "client" {
 			http.Error(w, "role must be 'host' or 'client'", http.StatusBadRequest)
 			return
@@ -83,18 +82,16 @@ func HandleSignalServer(rootCtx context.Context, mux *http.ServeMux, hub *Hub) {
 
 		if err := room.AddClient(client); err != nil {
 			slog.Debug("add client to room", "error", err)
-			client.SendMessage(&Message{
-				Type: "error",
-				Data: map[string]string{"message": err.Error()},
+			client.SendMessage(&ErrorMessage{
+				Type:    "error",
+				Message: err.Error(),
 			})
 			return
 		}
 
-		client.SendMessage(&Message{
-			Type: "room-meta",
-			Data: map[string]any{
-				"roomId": roomID,
-			},
+		client.SendMessage(&RoomMetaMessage{
+			Type:   MessageTypeRoomMeta,
+			RoomId: room.ID,
 		})
 
 		slog.Debug("client connected", "client_id", client.ID, "room_id", room.ID, "is_host", client.IsHost)

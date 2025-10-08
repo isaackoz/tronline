@@ -63,11 +63,12 @@ func (c *Client) ReadWriteWs(ctx context.Context) {
 				slog.Error("unmarshal message", "error", err)
 				continue
 			}
-			if c.IsHost {
-				msg.From = "host"
-			} else {
-				msg.From = "client"
-			}
+			//todo parse/validate the message, convert to the appropriate message type, and then forward to other peer
+			// if c.IsHost {
+			// 	msg.From = "host"
+			// } else {
+			// 	msg.From = "client"
+			// }
 			select {
 			case readChan <- msg:
 			default:
@@ -83,17 +84,18 @@ func (c *Client) ReadWriteWs(ctx context.Context) {
 				slog.Debug("read channel closed, closing connection", "client_id", c.ID)
 				return
 			}
-			slog.Debug("message received", "type", msg.Type, "from", msg.From, "target", msg.Target, "client_id", c.ID)
-
-			switch msg.Type {
-			case "offer", "answer", "ice-candidate":
-				c.Room.RouteMessage(&msg, c)
-			case "webrtc-connected":
+			slog.Debug("message received", "type", msg.GetType(), "client_id", c.ID)
+			msgType := msg.GetType()
+			switch msgType {
+			case MessageTypeOffer, MessageTypeAnswer, MessageTypeICECandidate:
+				c.Room.RouteMessage(msg, c)
+			case MessageTypeWebRTCConnected:
+				// when the client tells us that they connected to their peer, our work is done here
 				slog.Debug("webrtc connected", "client_id", c.ID, "room_id", c.Room.ID)
-				// close the websocket connection as we don't need it anymore
+				// TODO: close the websocket connection as we don't need it anymore
 				return
 			default:
-				slog.Warn("unknown message type", "type", msg.Type, "client_id", c.ID)
+				slog.Warn("unknown message type", "type", msg.GetType(), "client_id", c.ID)
 			}
 		case writeMessage, ok := <-c.Send:
 			if !ok {
@@ -121,7 +123,7 @@ func (c *Client) ReadWriteWs(ctx context.Context) {
 	}
 }
 
-func (c *Client) SendMessage(msg *Message) {
+func (c *Client) SendMessage(msg Message) {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		slog.Error("marshal message", "error", err)
@@ -130,6 +132,7 @@ func (c *Client) SendMessage(msg *Message) {
 
 	select {
 	case c.Send <- data:
+		slog.Debug("sent message", "type", msg.GetType(), "client_id", c.ID)
 	default:
 		slog.Debug("send channel full, closing connection", "client_id", c.ID)
 		close(c.Send)
