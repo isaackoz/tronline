@@ -3,6 +3,8 @@
 
 <!-- A canvas implementation of the grid -->
 <script lang="ts">
+	import { browser } from '$app/environment';
+
 	import { drawGrid } from '$lib/canvas/draw-grid';
 	import { onMount } from 'svelte';
 
@@ -11,6 +13,9 @@
 	let height = $state(0);
 
 	$effect(() => {
+		if (!browser) {
+			return;
+		}
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 		canvas.width = width;
@@ -21,6 +26,9 @@
 	});
 
 	onMount(() => {
+		if (!browser) {
+			return;
+		}
 		const observer = new ResizeObserver((e) => {
 			width = canvas.clientWidth;
 			height = canvas.clientHeight;

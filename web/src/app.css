@@ -1,4 +1,75 @@
 @import "tailwindcss";
 @plugin "daisyui" {
-   themes: light --default, dark --prefersdark, synthwave;
+   themes: light --default, dark --prefersdark, trondark;
  }
+
+
+@plugin "daisyui/theme" {
+  name: "trondark";
+  default: true;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: oklch(0.1101 0.0071 165.21);
+  --color-base-200: oklch(21% 0.034 264.665);
+  --color-base-300: oklch(27% 0.033 256.848);
+  --color-base-content: oklch(96% 0.003 264.542);
+  --color-primary: hsl(188, 81%, 50%);
+  --color-primary-content: oklch(12% 0.042 264.695);
+  --color-secondary: oklch(0.7996 0.155 77.63);
+  --color-secondary-content: oklch(0.000 0.019 200.9);
+  --color-accent: oklch(0.6118 0.1793 40.45);
+  --color-accent-content: oklch(0.000 0.026 86.3);
+  --color-neutral: oklch(0.3453 0.0468 219.62);
+  --color-neutral-content: oklch(98% 0.002 247.839);
+  --color-info: oklch(54% 0.245 262.881);
+  --color-info-content: oklch(97% 0.014 254.604);
+  --color-success: oklch(59% 0.145 163.225);
+  --color-success-content: oklch(97% 0.021 166.113);
+  --color-warning: oklch(66% 0.179 58.318);
+  --color-warning-content: oklch(14% 0 0);
+  --color-error: oklch(59% 0.249 0.584);
+  --color-error-content: oklch(97% 0.014 343.198);
+  --radius-selector: 1rem;
+  --radius-field: 1rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 2px;
+  --depth: 1;
+  --noise: 1;
+}
+
+@utility neon-text {
+  color: #fff;
+  text-shadow:
+    0 0 7px #fff,
+    0 0 8px #fff,
+    /* 0 0 10px #fff, */
+    0 0 42px var(--neon-color, #0fa),
+    0 0 82px var(--neon-color, #0fa),
+    0 0 92px var(--neon-color, #0fa),
+    0 0 102px var(--neon-color, #0fa),
+    0 0 151px var(--neon-color, #0fa)
+}
+
+/* Color variants */
+@utility neon-green {
+  --neon-color: #0fa;
+}
+
+@utility neon-pink {
+  --neon-color: #f0f;
+}
+
+@utility neon-blue {
+  /* use text primary */
+  --neon-color: var(--color-primary, #08f);
+}
+
+@utility neon-purple {
+  --neon-color: #90f;
+}
+
+@utility neon-yellow {
+  --neon-color: #ff0;
+}
