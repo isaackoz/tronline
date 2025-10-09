@@ -73,9 +73,6 @@ export interface ErrorMessage {
 // WebRTC Connected message
 export interface WebRTCConnectedMessage {
 	type: MessageType.WebRTCConnected;
-	target?: string;
-	from?: string;
-	data?: unknown;
 }
 
 // Discriminated union of all message types
